@@ -1,12 +1,8 @@
-
 import '/js/prefixed-storage.js';
 import {objectToNativeError} from '/js/logger.js';
 import * as Constants from '/js/constants.js';
 import * as Utils from '/js/utils.js';
 import * as Cloud from '/js/sync/cloud/cloud.js';
-
-// const MODULE_NAME = 'sync-cloud.mixin';
-// const logger = new Logger(MODULE_NAME, [Utils.getNameFromPath(location.href)]);
 
 const storage = localStorage.create(Constants.MODULES.CLOUD);
 
@@ -28,7 +24,7 @@ export default {
         list.add(Cloud.onSyncUiRequestListener());
 
         list.add(Cloud.on(['sync-start', 'sync-progress', 'sync-end', 'sync-error', 'sync-finish'], () => {
-            this.syncCloudInProgress = true; // any action means that progress is being made
+            this.syncCloudInProgress = true;
             this.syncCloudClearTimers();
         }));
 
@@ -63,9 +59,12 @@ export default {
         }));
     },
     beforeDestroy() {
-        this.syncCloudOffListeners.forEach(off => off());
-        this.syncCloudOffListeners.clear();
+        // Clear timers first before unbinding event handlers
         this.syncCloudClearTimers();
+        if (this.syncCloudOffListeners) {
+            this.syncCloudOffListeners.forEach(off => off());
+            this.syncCloudOffListeners.clear();
+        }
     },
     methods: {
         syncCloudClearTimers() {
@@ -86,10 +85,11 @@ export default {
                     local: Utils.dateInfo(lastSync.time),
                     cloud: Utils.dateInfo(lastSync.gist.updatedAt),
                 };
+            } else {
+                this.syncCloudLastUpdate = null;
             }
 
             this.syncCloudHasChanges = Boolean(storage.hasChanges);
-
             this.syncCloudErrorMessage = storage.lastError || '';
 
             this.syncCloudUpdateInfoTimer = setTimeout(() => this.syncCloudUpdateInfo(), 30_000);
