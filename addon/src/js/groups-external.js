@@ -40,7 +40,13 @@ function onAdded({group, windowId}) {
 }
 
 function hasExternalGroupUpdateKeys(group) {
-    return Object.keys(group).some(key => EXTERNAL_GROUP_UPDATE_KEYS.has(key));
+    // Avoids allocating an array via Object.keys() for better GC performance
+    for (const key in group) {
+        if (EXTERNAL_GROUP_UPDATE_KEYS.has(key)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function onUpdated({group, fullGroup}) {
