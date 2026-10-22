@@ -1,4 +1,3 @@
-
 import Vue from '/js/vue.runtime.esm.js';
 
 import '/js/prefixed-storage.js';
@@ -97,7 +96,7 @@ export default {
     beforeDestroy() {
         this.tabGroupsRemoveListeners();
     },
-    mounted() { // called before mounted in .vue files
+    mounted() {
         this.tabGroupsPromise = this.tabGroupsLoad(this.startUpDataPromise);
     },
     methods: {
@@ -122,7 +121,6 @@ export default {
             const list = this.tabGroupsOffListeners = new Set();
 
             list.add(Containers.onChanged(() => this.onChangedContainers()));
-
             list.add(Windows.on(['opened', 'closed'], () => this.loadWindows()));
 
             list.add(Tabs.on('updated', ({tabId, changeInfo}) => {
@@ -137,9 +135,9 @@ export default {
             }));
             list.add(Tabs.on('removed', ({tabId, groupId}) => {
                 const group = this.groups.find(group => group.id === groupId);
-                const tabIndex = group.tabs.findIndex(tab => tab.id === tabId);
+                const tabIndex = group?.tabs.findIndex(tab => tab.id === tabId);
 
-                if (tabIndex !== -1) {
+                if (tabIndex !== undefined && tabIndex !== -1) {
                     group.tabs.splice(tabIndex, 1);
                 }
             }));
@@ -159,7 +157,9 @@ export default {
             }));
             list.add(Groups.on('updated', request => {
                 const group = this.groups.find(group => group.id === request.group.id);
-                Object.assign(group, request.group);
+                if (group) {
+                    Object.assign(group, request.group);
+                }
                 this.onGroupUpdated?.(request);
             }));
             list.add(Groups.on('removed', request => {
@@ -188,8 +188,10 @@ export default {
         },
 
         tabGroupsRemoveListeners() {
-            this.tabGroupsOffListeners.forEach(off => off());
-            this.tabGroupsOffListeners.clear();
+            if (this.tabGroupsOffListeners) {
+                this.tabGroupsOffListeners.forEach(off => off());
+                this.tabGroupsOffListeners.clear();
+            }
         },
 
         tabGroupsHandleLockAddon() {
@@ -209,7 +211,7 @@ export default {
 
         async setFocusOnSearch() {
             await this.$nextTick();
-            this.$refs.search.focus();
+            this.$refs.search?.focus();
         },
 
         async loadWindows({windows} = {}) {
@@ -223,14 +225,13 @@ export default {
                 .then(({groups}) => groups);
 
             this.groups = groups.map(this.mapGroup, this);
-
             this.multipleTabIds = [];
         },
         async loadUnsyncedTabs({windows = null, windowId = null} = {}) {
             if (!windowId || this.currentWindow?.id === windowId) {
                 windows ??= await this.sendMessageModule('Windows.load', true, {includeFavIconUrl: true, includeThumbnail: this.includeTabThumbnails});
 
-                const win = windows.find(w => windowId ? w.id === windowId : w.id === this.currentWindow.id);
+                const win = windows.find(w => windowId ? w.id === windowId : w.id === this.currentWindow?.id);
 
                 if (!win) {
                     return;
@@ -245,7 +246,7 @@ export default {
         mapGroup(group) {
             group.tabs = group.tabs.map(tab => this.mapTab(tab, group.isArchive));
 
-            group.draggable = true; // isManage
+            group.draggable = true;
             group.isMoving = false;
             group.isOver = false;
 
@@ -291,7 +292,6 @@ export default {
             }
 
             tab = Tabs.normalizeFavIcon(tab);
-
             tab = this.mapTabContainer(tab);
 
             if (this.PAGES.isManage) {
@@ -310,10 +310,6 @@ export default {
             }
 
             return Vue.observable(tab);
-
-            // return/*  this.allTabs[tab.id] = */ new Vue({
-            //     data: tab,
-            // });
         },
         mapTabContainer(tab) {
             if (Containers.isDefault(tab.cookieStoreId)) {
@@ -325,8 +321,6 @@ export default {
             return tab;
         },
 
-        // set --sub-group-color only when the tab belongs to a sub-group;
-        // when absent, `border: … var(--sub-group-color)` collapses (invalid var, no fallback) instead of drawing a transparent line
         subGroupColorStyle(tab, group) {
             const subGroup = group.subGroupByTab.get(tab);
 
@@ -343,14 +337,12 @@ export default {
             };
         },
 
-        // tabs and groups actions
         getTabIdsForMove(tabId) {
             if (tabId && !this.multipleTabIds.includes(tabId)) {
                 this.multipleTabIds.push(tabId);
             }
 
             const tabs = [...this.multipleTabIds];
-
             this.multipleTabIds = [];
 
             return tabs;
@@ -380,17 +372,13 @@ export default {
             const groupsToDiscard = this.groups.filter(group => {
                 if (groupExclude.id === group.id) {
                     return false;
-                } else if (group.isArchive) {
-                    return false;
-                } else if (this.isOpenedGroup(group)) {
+                } else if (group.isArchive || this.isOpenedGroup(group)) {
                     return false;
                 }
-
                 return true;
             });
 
             const tabsToDiscard = groupsToDiscard.flatMap(group => group.tabs);
-
             this.sendMessageModule('Tabs.discard', tabsToDiscard.map(Tabs.extractId));
         },
         async moveTabs(tabId, groupId, loadUnsync = false, showTab, discardTabs) {
@@ -408,10 +396,13 @@ export default {
         },
 
         async loadGroupTabs(groupId) {
-            const {group: {tabs}} = await this.sendMessageModule('Groups.load', groupId, true, {includeFavIconUrl: true, includeThumbnail: this.includeTabThumbnails});
+            const response = await this.sendMessageModule('Groups.load', groupId, true, {includeFavIconUrl: true, includeThumbnail: this.includeTabThumbnails});
+            const tabs = response?.group?.tabs;
             const group = this.groups.find(gr => gr.id === groupId);
 
-            group.tabs = tabs.map(tab => this.mapTab(tab, group.isArchive));
+            if (group && tabs) {
+                group.tabs = tabs.map(tab => this.mapTab(tab, group.isArchive));
+            }
         },
 
         openGroupSettings(group) {
@@ -424,7 +415,6 @@ export default {
                 this.sendMessageModule('Groups.update', groupId, changes);
             }
         },
-
 
         async unloadGroup(group) {
             this.isLoading = true;
@@ -440,7 +430,7 @@ export default {
         async toggleArchiveGroup({id, title, isArchive}) {
             let ok = true;
 
-            if (!isArchive && this.options.showConfirmDialogBeforeGroupArchiving) {
+            if (!isArchive && this.options?.showConfirmDialogBeforeGroupArchiving) {
                 ok = await this.confirm(this.lang('archiveGroup'), this.lang('confirmArchiveGroup', title));
             }
 
