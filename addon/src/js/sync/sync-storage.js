@@ -1,4 +1,3 @@
-
 import * as Constants from '../constants.js';
 import * as StorageUtils from '../storage-utils.js';
 import {migrateSyncData, isDataVersionNewer, stampVersion} from '../migration.js';
@@ -18,7 +17,6 @@ export async function get() {
     }
 
     const areaData = await StorageUtils.nativeGet('sync', null, log);
-
     const result = await migrateSyncData(areaData);
 
     if (result.error) {
@@ -29,16 +27,18 @@ export async function get() {
     if (result.migrated) {
         log.log('sync area was migrated, commit');
 
-        await browser.storage.sync.set(stampVersion(result.data));
-
-        if (result.keysToRemove.length) {
-            await browser.storage.sync.remove(result.keysToRemove);
-        }
+        // Execute storage set and cleanup keys concurrently
+        await Promise.all([
+            browser.storage.sync.set(stampVersion(result.data)),
+            result.keysToRemove.length ? browser.storage.sync.remove(result.keysToRemove) : Promise.resolve(),
+        ]);
     }
 
     const syncOptions = {};
+    const defaultEntries = Object.entries(Constants.DEFAULT_SYNC_OPTIONS);
 
-    for (const [key, defaultValue] of Object.entries(Constants.DEFAULT_SYNC_OPTIONS)) {
+    for (let i = 0; i < defaultEntries.length; i++) {
+        const [key, defaultValue] = defaultEntries[i];
         syncOptions[key] = result.data[key] !== undefined ? result.data[key] : JSON.clone(defaultValue);
     }
 
