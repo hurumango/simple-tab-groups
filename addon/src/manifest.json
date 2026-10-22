@@ -1,165 +1,166 @@
 {
-    "manifest_version": 2,
+    "manifest_version": 2,[cite: 7]
 
     "browser_specific_settings": {
         "gecko": {
-            "id": "simple-tab-groups@drive4ik",
-            "strict_min_version": "153.0"
+            "id": "simple-tab-groups@hurumango",
+            "strict_min_version": "153.0"[cite: 7]
         }
     },
 
-    "name": "__MSG_extensionName__",
-    "short_name": "STG",
-    "description": "__MSG_extensionDescription__",
-    "version": "6.0",
-    "author": "Vitalii Bavykin",
-    "homepage_url": "https://github.com/drive4ik/simple-tab-groups",
+    "name": "__MSG_extensionName__",[cite: 7]
+    "short_name": "STG",[cite: 7]
+    "description": "__MSG_extensionDescription__",[cite: 7]
+    "version": "6.0",[cite: 7]
+    "author": "Magulta Desormo (Fork)",
+    "homepage_url": "https://github.com/hurumango/simple-tab-groups",
 
-    "incognito": "not_allowed",
+    "incognito": "not_allowed",[cite: 7]
 
     "icons": {
-        "128": "icons/icon.svg"
+        "128": "icons/icon.svg"[cite: 7]
     },
 
+    "content_security_policy": "script-src 'self'; object-src 'self'",
+
     "permissions": [
-        "tabs",
-        "tabGroups",
-        "tabHide",
-        "notifications",
-        "menus",
-        "contextualIdentities",
-        "cookies",
-        "sessions",
-        "alarms",
-        "downloads",
-        "management",
-        "webRequest",
-        "webRequestBlocking",
-        "<all_urls>",
-        "storage",
-        "unlimitedStorage"
+        "tabs",[cite: 7]
+        "tabGroups",[cite: 7]
+        "tabHide",[cite: 7]
+        "notifications",[cite: 7]
+        "menus",[cite: 7]
+        "contextualIdentities",[cite: 7]
+        "cookies",[cite: 7]
+        "sessions",[cite: 7]
+        "alarms",[cite: 7]
+        "downloads",[cite: 7]
+        "management",[cite: 7]
+        "webRequest",[cite: 7]
+        "webRequestBlocking",[cite: 7]
+        "<all_urls>",[cite: 7]
+        "storage",[cite: 7]
+        "unlimitedStorage"[cite: 7]
     ],
 
     "optional_permissions": [
-        "bookmarks",
-        "nativeMessaging",
-        "browserSettings"
+        "bookmarks",[cite: 7]
+        "nativeMessaging",[cite: 7]
+        "browserSettings"[cite: 7]
     ],
 
     "browser_action": {
-        "default_icon": "icons/icon.svg?nocache",
-        "default_title": "__MSG_extensionName__",
-        "default_popup": "popup/popup.html",
-        "default_area": "navbar",
-        "browser_style": false
+        "default_icon": "icons/icon.svg?nocache",[cite: 7]
+        "default_title": "__MSG_extensionName__",[cite: 7]
+        "default_popup": "popup/popup.html",[cite: 7]
+        "default_area": "navbar",[cite: 7]
+        "browser_style": false[cite: 7]
     },
 
     "sidebar_action": {
-        "default_icon": "icons/icon.svg?nocache",
-        "default_title": "__MSG_extensionName__",
-        "default_panel": "popup/popup.html#sidebar",
-        "browser_style": false,
-        "open_at_install": false
+        "default_icon": "icons/icon.svg?nocache",[cite: 7]
+        "default_title": "__MSG_extensionName__",[cite: 7]
+        "default_panel": "popup/popup.html#sidebar",[cite: 7]
+        "browser_style": false,[cite: 7]
+        "open_at_install": false[cite: 7]
     },
 
     "content_scripts": [
         {
-            "matches": ["<all_urls>"],
-            "js": ["web/content-script.js"],
-            "css": ["web/content-script.css"],
-            "css_origin": "user",
-            "match_about_blank": true,
-            "all_frames": true,
-            "run_at": "document_end"
+            "matches": ["<all_urls>"],[cite: 7]
+            "js": ["web/content-script.js"],[cite: 7]
+            "css": ["web/content-script.css"],[cite: 7]
+            "css_origin": "user",[cite: 7]
+            "match_about_blank": true,[cite: 7]
+            "all_frames": true,[cite: 7]
+            "run_at": "document_end"[cite: 7]
         }
     ],
 
     "options_ui": {
-        "page": "options/options.html",
-        "open_in_tab": true,
-        "browser_style": false
+        "page": "options/options.html",[cite: 7]
+        "open_in_tab": true,[cite: 7]
+        "browser_style": false[cite: 7]
     },
 
     "background": {
-        "type": "module",
-        "scripts": ["background.js"]
+        "type": "module",[cite: 7]
+        "scripts": ["background.js"][cite: 7]
     },
 
-    "default_locale": "en",
+    "default_locale": "en",[cite: 7]
 
     "commands": {
         "_execute_browser_action": {
             "suggested_key": {
-                "default": "F8"
+                "default": "F8"[cite: 7]
             },
-            "description": "__MSG_openPopupTitle__"
+            "description": "__MSG_openPopupTitle__"[cite: 7]
         },
         "_execute_sidebar_action": {
-            "description": "__MSG_openSidebarTitle__"
+            "description": "__MSG_openSidebarTitle__"[cite: 7]
         },
         "open-manage-groups": {
-            "description": "__MSG_manageGroupsTitle__"
+            "description": "__MSG_manageGroupsTitle__"[cite: 7]
         },
         "move-selected-tabs-to-custom-group": {
-            "description": "__MSG_hotkeyActionTitleMoveSelectedTabsToCustomGroup__"
+            "description": "__MSG_hotkeyActionTitleMoveSelectedTabsToCustomGroup__"[cite: 7]
         },
         "load-custom-group": {
-            "description": "__MSG_hotkeyActionTitleLoadCustomGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadCustomGroup__"[cite: 7]
         },
         "load-next-group": {
-            "description": "__MSG_hotkeyActionTitleLoadNextGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadNextGroup__"[cite: 7]
         },
         "load-prev-group": {
-            "description": "__MSG_hotkeyActionTitleLoadPrevGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadPrevGroup__"[cite: 7]
         },
         "load-next-unloaded-group": {
-            "description": "__MSG_hotkeyActionTitleLoadNextUnloadedGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadNextUnloadedGroup__"[cite: 7]
         },
         "load-prev-unloaded-group": {
-            "description": "__MSG_hotkeyActionTitleLoadPrevUnloadedGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadPrevUnloadedGroup__"[cite: 7]
         },
         "load-next-non-empty-group": {
-            "description": "__MSG_hotkeyActionTitleLoadNextNonEmptyGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadNextNonEmptyGroup__"[cite: 7]
         },
         "load-prev-non-empty-group": {
-            "description": "__MSG_hotkeyActionTitleLoadPrevNonEmptyGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadPrevNonEmptyGroup__"[cite: 7]
         },
         "load-history-next-group": {
-            "description": "__MSG_hotkeyActionTitleLoadHistoryNextGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadHistoryNextGroup__"[cite: 7]
         },
         "load-history-prev-group": {
-            "description": "__MSG_hotkeyActionTitleLoadHistoryPrevGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadHistoryPrevGroup__"[cite: 7]
         },
         "load-first-group": {
-            "description": "__MSG_hotkeyActionTitleLoadFirstGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadFirstGroup__"[cite: 7]
         },
         "load-last-group": {
-            "description": "__MSG_hotkeyActionTitleLoadLastGroup__"
+            "description": "__MSG_hotkeyActionTitleLoadLastGroup__"[cite: 7]
         },
         "add-new-group": {
-            "description": "__MSG_hotkeyActionTitleAddNewGroup__"
+            "description": "__MSG_hotkeyActionTitleAddNewGroup__"[cite: 7]
         },
         "rename-group": {
-            "description": "__MSG_hotkeyActionTitleRenameGroup__"
+            "description": "__MSG_hotkeyActionTitleRenameGroup__"[cite: 7]
         },
         "discard-group": {
-            "description": "__MSG_hotkeyActionTitleDiscardGroup__"
+            "description": "__MSG_hotkeyActionTitleDiscardGroup__"[cite: 7]
         },
         "discard-other-groups": {
-            "description": "__MSG_hotkeyActionTitleDiscardOtherGroups__"
+            "description": "__MSG_hotkeyActionTitleDiscardOtherGroups__"[cite: 7]
         },
         "unload-group": {
-            "description": "__MSG_unloadGroup__"
+            "description": "__MSG_unloadGroup__"[cite: 7]
         },
         "reload-all-tabs-in-current-group": {
-            "description": "__MSG_hotkeyActionTitleReloadAllTabsInCurrentGroup__"
+            "description": "__MSG_hotkeyActionTitleReloadAllTabsInCurrentGroup__"[cite: 7]
         },
         "create-backup": {
-            "description": "__MSG_exportAddonSettingsButton__"
+            "description": "__MSG_exportAddonSettingsButton__"[cite: 7]
         },
         "start-cloud-sync": {
-            "description": "__MSG_syncStart__"
+            "description": "__MSG_syncStart__"[cite: 7]
         }
     }
-
 }
