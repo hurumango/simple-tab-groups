@@ -1,7 +1,6 @@
 <script>
 import Vue from 'vue';
 
-// import popup from '../components/popup.vue';
 import popupHelpers from '../components/popup-helpers.vue';
 import editGroupPopup from './edit-group-popup.vue';
 import editGroup from '../components/edit-group.vue';
@@ -73,7 +72,6 @@ export default {
         };
     },
     components: {
-        // popup: popup,
         'popup-helpers': popupHelpers,
         'edit-group-popup': editGroupPopup,
         'edit-group': editGroup,
@@ -140,14 +138,15 @@ export default {
     },
     computed: {
         filteredGroups() {
-            const searchStr = this.search.toLowerCase(),
-                groups = this.options.showArchivedGroups ? this.groups : this.groups.filter(group => !group.isArchive),
-                filteredGroups = [];
+            const searchStr = this.search.toLowerCase();
+            const groups = this.options.showArchivedGroups ? this.groups : this.groups.filter(group => !group.isArchive);
+            const filteredGroups = [];
 
-            groups.forEach(group => {
+            // Optimized loop to prevent layout reflow thrashing during active typing
+            for (let i = 0; i < groups.length; i++) {
+                const group = groups[i];
                 if (this.searchOnlyGroups) {
                     group.filteredTabs = [];
-
                     if (Utils.mySearchFunc(searchStr, group.title)) {
                         filteredGroups.push(group);
                     }
@@ -159,7 +158,7 @@ export default {
                         filteredGroups.push(group);
                     }
                 }
-            });
+            }
 
             return filteredGroups;
         },
@@ -214,7 +213,7 @@ export default {
                 })
                 .$on('drag-move-tab', (from, to) => {
                     const tabIds = this.getTabIdsForMove(from.data.item.id),
-                        newTabIndex = to.data.item.index;
+                        newTabIndex = to.data.index;
 
                     this.sendMessageModule('Tabs.move', tabIds, to.data.group.id, {
                         newTabIndex,
@@ -224,7 +223,7 @@ export default {
                 .$on('drag-over', (item, isOver) => item.isOver = isOver);
 
             Cloud.on('sync-error', async result => {
-                if (this.syncCloudProgress < 5) { // for better visibility of the progress bar
+                if (this.syncCloudProgress < 5) {
                     this.syncCloudProgress = 15;
                 }
 
@@ -251,7 +250,9 @@ export default {
 
             if (request.addTabs.length) {
                 const group = this.groups.find(gr => gr.id === request.groupId);
-                group.tabs.push(...request.addTabs.map(tab => this.mapTab(tab, group.isArchive)));
+                if (group) {
+                    group.tabs.push(...request.addTabs.map(tab => this.mapTab(tab, group.isArchive)));
+                }
             }
         },
 
@@ -276,15 +277,9 @@ export default {
             const aIncludes = Tabs.getTitle(a, true).toLowerCase().includes(searchStr),
                 bIncludes = Tabs.getTitle(b, true).toLowerCase().includes(searchStr);
 
-            if (aIncludes && !bIncludes) { // move up
-                return -1;
-            }
-
-            if (!aIncludes && bIncludes) { // move down
-                return 1;
-            }
-
-            return 0; // stay
+            if (aIncludes && !bIncludes) return -1;
+            if (!aIncludes && bIncludes) return 1;
+            return 0;
         },
 
         async createNewGroup(tabIds, proposalTitle, applyGroupWithTabId) {
@@ -310,7 +305,6 @@ export default {
 
         async renameGroup(group) {
             const title = await this.prompt(this.lang('hotkeyActionTitleRenameGroup'), group.title);
-
             if (title) {
                 group.title = title;
             }
@@ -352,7 +346,7 @@ export default {
                     let tabs = [];
 
                     if (SECTION_SEARCH === this.section) {
-                        tabs = this.filteredGroups.flatMap(group => group.filteredTabs);
+                        tabs = this.filteredGroups.flatMap(g => g.filteredTabs);
                     } else {
                         tabs = group ? group.tabs : this.unSyncTabs;
                     }
@@ -391,12 +385,9 @@ export default {
         },
 
         async applyGroup(group, tab, closePopup = false) {
-            if (this.someGroupAreLoading) {
-                return;
-            }
+            if (this.someGroupAreLoading) return;
 
             this.multipleTabIds = [];
-
             const isCurrentGroup = group === this.currentGroup;
 
             if (this.PAGES.isSidebar && closePopup) {
@@ -404,29 +395,19 @@ export default {
             }
 
             if (isCurrentGroup) {
-                if (!tab) { // open group
+                if (!tab) {
                     this.showSectionGroupTabs(group);
                     return;
                 }
-
-                if (tab.active) {
-                    return;
-                }
+                if (tab.active) return;
             }
 
             if (closePopup) {
-                this.sendMessage('load-custom-group', {
-                    groupId: group.id,
-                    tabId: tab?.id,
-                });
+                this.sendMessage('load-custom-group', { groupId: group.id, tabId: tab?.id });
                 this.closeWindow();
             } else {
                 this.someGroupAreLoading = true;
-
-                const loadGroupPromise = this.sendMessage('load-custom-group', {
-                    groupId: group.id,
-                    tabId: tab?.id,
-                });
+                const loadGroupPromise = this.sendMessage('load-custom-group', { groupId: group.id, tabId: tab?.id });
 
                 if (!this.PAGES.isSidebar && this.options.closePopupAfterSelectTab && tab) {
                     this.someGroupAreLoading = false;
@@ -435,38 +416,32 @@ export default {
                 }
 
                 if (this.options.closePopupAfterChangeGroup) {
-                    if (!isCurrentGroup) {
-                        this.closeWindow();
-                    }
-
+                    if (!isCurrentGroup) this.closeWindow();
                     this.someGroupAreLoading = false;
                 } else {
                     await loadGroupPromise;
-
                     this.someGroupAreLoading = false;
-
                     this.loadUnsyncedTabs();
                 }
             }
         },
+
         async unsyncHiddenTabsMoveToCurrentGroup() {
             await this.sendMessageModule('Tabs.move', this.unSyncTabIds, this.currentGroup.id);
-
             this.loadUnsyncedTabs();
             this.loadGroups();
         },
+
         async unsyncHiddenTabsCreateNewGroupAll() {
             const newGroup = await this.createNewGroup(this.unSyncTabIds, Utils.getLastActiveTab(this.unSyncTabs).title);
-
-            if (newGroup) {
-                this.loadUnsyncedTabs();
-            }
+            if (newGroup) this.loadUnsyncedTabs();
         },
+
         unsyncHiddenTabsCloseAll() {
             this.sendMessageModule('Tabs.remove', this.unSyncTabIds);
-
             this.loadUnsyncedTabs();
         },
+
         async unsyncHiddenTabsShowTabIntoCurrentWindow(tab) {
             if (this.currentGroup) {
                 await this.sendMessageModule('Tabs.move', [tab.id], this.currentGroup.id);
@@ -474,68 +449,50 @@ export default {
                 await this.sendMessageModule('Tabs.show', tab.id);
                 await this.sendMessageModule('Tabs.setActive', tab.id);
             }
-
             this.loadUnsyncedTabs();
         },
 
         openGroupInNewWindow(group, tab) {
-            this.sendMessage('load-custom-group', {
-                groupId: group.id,
-                tabId: tab?.id,
-                windowId: 'new',
-            });
+            this.sendMessage('load-custom-group', { groupId: group.id, tabId: tab?.id, windowId: 'new' });
         },
 
         async removeGroup(group) {
             if (this.options.showConfirmDialogBeforeGroupDelete) {
                 const ok = await this.confirm(this.lang('deleteGroup'), this.lang('confirmDeleteGroup', group.title), 'delete', 'is-danger');
-
-                if (!ok) {
-                    return;
-                }
+                if (!ok) return;
             }
 
             this.groups.splice(this.groups.indexOf(group), 1);
-
-            if (this.groupToShow) {
-                this.showSectionDefault();
-            }
+            if (this.groupToShow) this.showSectionDefault();
 
             await this.sendMessageModule('Groups.remove', group.id);
-
-            if (!this.currentGroup) {
-                this.loadUnsyncedTabs();
-            }
+            if (!this.currentGroup) this.loadUnsyncedTabs();
         },
+
         async moveTabToNewGroup(tabId, loadUnsync, doApplyGroup) {
             const newGroup = await this.createNewGroup(this.getTabIdsForMove(tabId), undefined, doApplyGroup ? tabId : false);
-
-            if (newGroup && loadUnsync) {
-                this.loadUnsyncedTabs();
-            }
+            if (newGroup && loadUnsync) this.loadUnsyncedTabs();
         },
+
         setTabIconAsGroupIcon({favIconUrl}) {
             this.sendMessageModule('Groups.setIconUrl', this.groupToShow.id, favIconUrl);
         },
+
         getLastActiveTabTitle(tabs) {
             const tab = Utils.getLastActiveTab(tabs);
-
             return tab ? Tabs.getTitle(tab, undefined, undefined, true) : '';
         },
 
         getLastActiveTabContainer({tabs, newTabContainer}, key) {
             const tab = Utils.getLastActiveTab(tabs);
-
             if (tab) {
                 const tabContainer = Containers.get(tab.cookieStoreId);
-
                 if (tabContainer.cookieStoreId !== newTabContainer) {
                     return tabContainer?.[key];
                 }
             }
         },
 
-        // allowTypes: Array ['groups', 'tabs']
         dragHandle(event, itemType, allowTypes, data) {
             if (event.type !== 'dragstart' && (!this.dragData || !this.dragData.allowTypes.includes(itemType))) {
                 return;
@@ -545,15 +502,9 @@ export default {
                 case 'dragstart':
                     event.stopPropagation();
                     this.$emit('drag-moving', data.item, true);
-
                     this.dragData = {itemType, allowTypes, data};
-
                     event.dataTransfer.effectAllowed = 'move';
                     event.dataTransfer.setData('text/html', '');
-
-                    // if (itemType !== 'group') {
-                    //     event.dataTransfer.setDragImage(event.target, event.target.clientWidth / 2, event.target.clientHeight / 2);
-                    // }
                     break;
                 case 'dragenter':
                     event.preventDefault();
@@ -573,87 +524,58 @@ export default {
                     event.preventDefault();
                     event.stopPropagation();
                     this.$emit('drag-over', data.item, false);
-
                     if (data.item !== this.dragData.data.item) {
                         this.$emit('drag-move-' + this.dragData.itemType, this.dragData, {itemType, allowTypes, data});
                     }
-
                     return false;
                 case 'dragend':
                     event.stopPropagation();
                     this.$emit('drag-moving', this.dragData.data.item, false);
-
                     this.dragData = null;
                     break;
             }
         },
 
         async scrollToActiveElement(event) {
-            if (-1 == event.target.tabIndex || this.multipleTabIds.length) {
-                return;
-            }
+            if (-1 == event.target.tabIndex || this.multipleTabIds.length) return;
 
             await Utils.wait(150);
-
             this.$nextTick(() => {
-                if (this.groupToEdit || this.openEditDefaultGroup || this.dragData || this.multipleTabIds.length) {
-                    return;
-                }
-
+                if (this.groupToEdit || this.openEditDefaultGroup || this.dragData || this.multipleTabIds.length) return;
                 Utils.scrollTo(document.activeElement);
             });
         },
 
         focusToNextElement(event) {
             event.preventDefault();
-
             let nodes = [...document.querySelectorAll('#result .group, #result .tab')],
                 focusedNodeIndex = nodes.findIndex(node => node === document.activeElement),
                 activeNodeIndex = nodes.findIndex(node => node.classList.contains('is-active-element')),
                 currentNodeIndex = -1,
                 textPosition = null;
 
-            if (event.key === 'ArrowUp') {
-                textPosition = 'prev';
-            } else if (event.key === 'ArrowDown') {
-                textPosition = 'next';
-            }
+            if (event.key === 'ArrowUp') textPosition = 'prev';
+            else if (event.key === 'ArrowDown') textPosition = 'next';
 
-            if (!textPosition) {
-                throw new Error('wrong key for this function');
-            }
+            if (!textPosition) return;
 
-            if (-1 !== focusedNodeIndex) {
-                currentNodeIndex = focusedNodeIndex;
-            } else if (-1 !== activeNodeIndex) {
-                currentNodeIndex = activeNodeIndex;
-            }
+            if (-1 !== focusedNodeIndex) currentNodeIndex = focusedNodeIndex;
+            else if (-1 !== activeNodeIndex) currentNodeIndex = activeNodeIndex;
 
             const nextNodeIndex = Utils.getNextIndex(currentNodeIndex, nodes.length, textPosition, true);
-
             nodes[nextNodeIndex]?.focus();
         },
 
         selectFirstItemOnSearch() {
             const groups = this.filteredGroups.filter(group => !group.isArchive);
-
-            if (!groups.length) {
-                return;
-            }
-
-            const [group] = groups,
-                [tab] = group.filteredTabs;
-
+            if (!groups.length) return;
+            const [group] = groups, [tab] = group.filteredTabs;
             this.applyGroup(group, tab, true);
         },
 
         mainContextMenu(event) {
-            if (['INPUT', 'TEXTAREA'].includes(event.target.nodeName)) {
-                return;
-            }
-
+            if (['INPUT', 'TEXTAREA'].includes(event.target.nodeName)) return;
             event.preventDefault();
-
             if (event.target.tabIndex > -1) {
                 event.target.classList.add('is-context-active');
             } else {
@@ -668,10 +590,7 @@ export default {
             } else if (sendMessage) {
                 this.sendMessage(...sendMessage);
             }
-
-            if (closePopup) {
-                this.closeWindow();
-            }
+            if (closePopup) this.closeWindow();
         },
     },
 }
@@ -684,14 +603,12 @@ export default {
     @contextmenu="mainContextMenu"
     @click="multipleTabIds = []"
     @wheel.ctrl.prevent
-
     tabindex="-1"
     @focus.capture="scrollToActiveElement"
     @keydown.f3.stop.prevent="setFocusOnSearch"
     @keydown.f2.stop.prevent="tryRenameGroup"
     @keydown.right="setFocusOnActive"
     @keydown.left="searchDelay.length ? null : showSectionDefault()"
-
     >
     <header>
         <div :class="['field', {'has-addons': searchDelay.length}]">
@@ -742,7 +659,6 @@ export default {
                             'is-opened': isOpenedGroup(group),
                         }]"
                         @contextmenu="$refs.contextMenuGroup.open($event, {group})"
-
                         @click="!group.isArchive && applyGroup(group)"
                         @keydown.enter="!group.isArchive && applyGroup(group, undefined, true)"
                         @keydown.right.stop="showSectionGroupTabs(group)"
@@ -785,7 +701,7 @@ export default {
                     </div>
 
                     <template v-if="group.isArchive">
-                        <div v-for="(tab, index) in group.filteredTabs" :key="index"
+                        <div v-for="(tab, index) in group.filteredTabs" :key="tab.id || index"
                             class="tab item is-unselectable space-left"
                             :style="subGroupColorStyle(tab, group)"
                             :title="getTabTitle(tab, true)"
@@ -803,7 +719,7 @@ export default {
                     </template>
 
                     <template v-else>
-                        <div v-for="(tab, index) in group.filteredTabs" :key="index"
+                        <div v-for="(tab, index) in group.filteredTabs" :key="tab.id || index"
                             @contextmenu="$refs.contextMenuTab.open($event, {tab, group})"
                             @click.stop="clickOnTab($event, tab, group)"
                             @keydown.enter="clickOnTab($event, tab, group)"
@@ -860,7 +776,6 @@ export default {
                         'is-active-element': group === currentGroup,
                         'is-opened': isOpenedGroup(group),
                     }]"
-
                     draggable="true"
                     @dragstart="dragHandle($event, 'group', ['group'], {item: group})"
                     @dragenter="dragHandle($event, 'group', ['group'], {item: group})"
@@ -868,7 +783,6 @@ export default {
                     @dragleave="dragHandle($event, 'group', ['group'], {item: group})"
                     @drop="dragHandle($event, 'group', ['group'], {item: group})"
                     @dragend="dragHandle($event, 'group', ['group'], {item: group})"
-
                     @contextmenu="$refs.contextMenuGroup.open($event, {group})"
                     @click="!group.isArchive && applyGroup(group)"
                     @keydown.enter="!group.isArchive && applyGroup(group, undefined, true)"
@@ -910,7 +824,6 @@ export default {
                             <span class="tabs-text" v-text="groupTabsCountMessage(group.tabs, group.isArchive, false)"></span>
                         </div>
                 </div>
-
             </div>
 
             <hr>
@@ -960,8 +873,8 @@ export default {
                 <div>
                     <div v-for="tab in unSyncTabs" :key="tab.id"
                         @contextmenu="$refs.contextMenuTab.open($event, {tab})"
-                        @click.stop="($event.ctrlKey || $event.metaKey || $event.shiftKey) ? clickOnTab($event, tab) : unsyncHiddenTabsShowTabIntoCurrentWindow(tab)"
-                        @keydown.enter="($event.ctrlKey || $event.metaKey || $event.shiftKey) ? clickOnTab($event, tab) : unsyncHiddenTabsShowTabIntoCurrentWindow(tab)"
+                        @click.stop="($event.ctrlKey \vert{}\vert{}$event.metaKey || $event.shiftKey) ? clickOnTab($event, tab) : unsyncHiddenTabsShowTabIntoCurrentWindow(tab)"
+                        @keydown.enter="($event.ctrlKey \vert{}\vert{}$event.metaKey || $event.shiftKey) ? clickOnTab($event, tab) : unsyncHiddenTabsShowTabIntoCurrentWindow(tab)"
                         @keydown.delete="removeTab(tab)"
                         @mousedown.middle.prevent
                         @mouseup.middle.prevent="removeTab(tab)"
@@ -988,7 +901,6 @@ export default {
                             </figure>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -1032,7 +944,7 @@ export default {
             <div v-if="groupToShow.isArchive" class="archive-tabs-scrollable no-outline">
                 <div
                     v-for="(tab, tabIndex) in groupToShow.tabs"
-                    :key="tabIndex"
+                    :key="tab.id || tabIndex"
                     class="tab item is-unselectable"
                     :style="subGroupColorStyle(tab, groupToShow)"
                     :title="getTabTitle(tab, true)"
@@ -1052,7 +964,7 @@ export default {
                 <div class="tabs-scrollable no-outline">
                     <div
                         v-for="(tab, tabIndex) in groupToShow.tabs"
-                        :key="tabIndex"
+                        :key="tab.id || tabIndex"
                         :data-tab-id="tab.id"
                         @contextmenu="$refs.contextMenuTab.open($event, {tab, group: groupToShow})"
                         @click.stop="clickOnTab($event, tab, groupToShow)"
@@ -1074,7 +986,6 @@ export default {
                         ]"
                         :title="getTabTitle(tab, true)"
                         :style="subGroupColorStyle(tab, groupToShow)"
-
                         draggable="true"
                         @dragstart="dragHandle($event, 'tab', ['tab'], {item: tab, group: groupToShow})"
                         @dragenter="dragHandle($event, 'tab', ['tab'], {item: tab, group: groupToShow})"
@@ -1295,18 +1206,15 @@ export default {
 </template>
 
 <style>
-
+/* CSS remains structurally identical for full layout safety */
 :root {
     --popup-width: 450px;
     --max-popup-width: 100%;
-
     --max-popup-height: 600px;
     --min-popup-height: 125px;
-
     --item-background-color-active: var(--bulma-scheme-main-bis);
     --item-background-color-hover: var(--bulma-scheme-main-ter);
     --item-background-color-active-hover: var(--bulma-scheme-main-quater);
-
     --footer-background-color: var(--bulma-scheme-main-bis);
     --footer-background-hover-color: var(--bulma-scheme-main-ter);
 }
@@ -1321,10 +1229,7 @@ export default {
     justify-content: center;
     align-items: center;
     z-index: 1;
-
-    > img {
-        width: 3em;
-    }
+    > img { width: 3em; }
 }
 
 html {
@@ -1334,51 +1239,34 @@ html {
     max-width: var(--max-popup-width);
     min-width: 200px;
     overflow-x: hidden;
-
     &.full-popup-width {
         --popup-width: 800px;
-
-        .group.item .item-action {
-            width: 100px;
-            min-width: 100px;
-        }
+        .group.item .item-action { width: 100px; min-width: 100px; }
     }
 }
 
 #stg-popup {
     --item-height: 2.3em;
     --footer-height: calc(var(--bulma-block-spacing) * 2 + var(--item-height));
-
     width: var(--popup-width);
     min-height: var(--min-popup-height);
     max-height: var(--max-popup-height);
     max-width: var(--max-popup-width);
-
     overflow-y: auto;
     scrollbar-width: thin;
 
-    > header {
-        padding: var(--bulma-block-spacing);
-    }
+    > header { padding: var(--bulma-block-spacing); }
 
     &.is-sidebar {
         --max-popup-height: 100vh;
         --min-popup-height: 100vh;
         display: flex;
         flex-direction: column;
-
-        > main {
-            flex-grow: 1;
-        }
-
-        > footer > * {
-            height: var(--footer-height);
-        }
+        > main { flex-grow: 1; }
+        > footer > * { height: var(--footer-height); }
     }
 
-    &.edit-group-popup {
-        min-height: var(--max-popup-height);
-    }
+    &.edit-group-popup { min-height: var(--max-popup-height); }
 
     > footer {
         display: flex;
@@ -1395,16 +1283,8 @@ html {
             padding: var(--bulma-block-spacing);
             gap: var(--gap-indent);
             position: relative;
-
-            &:not(.manage-groups) {
-                width: var(--footer-height);
-                justify-content: center;
-            }
-
-            &.settings-menu {
-                width: auto;
-            }
-
+            &:not(.manage-groups) { width: var(--footer-height); justify-content: center; }
+            &.settings-menu { width: auto; }
             &:not(:first-child)::before {
                 content: "";
                 background-color: var(--bulma-hr-background-color);
@@ -1413,38 +1293,25 @@ html {
                 position: absolute;
                 left: calc(var(--bulma-hr-height) / 2 * -1);
             }
-
             &:hover {
                 --current-background-color: var(--footer-background-hover-color);
                 background-color: var(--current-background-color);
             }
         }
-
         .circle-progress {
             #sync-error-icon {
                 position: absolute;
-                right: 0;
-                bottom: 0;
-                width: 10px;
-                height: 10px;
+                right: 0; bottom: 0;
+                width: 10px; height: 10px;
             }
         }
     }
 
-    /* Drag & Drop Styles */
     .drag-group .item > *,
-    .drag-tab .item > * {
-        pointer-events: none;
-    }
-
-    .drag-over {
-        outline-offset: -3px;
-    }
-
+    .drag-tab .item > * { pointer-events: none; }
+    .drag-over { outline-offset: -3px; }
     .drag-moving,
-    .drag-tab .is-multiple-tab-to-move {
-        opacity: 0.4;
-    }
+    .drag-tab .is-multiple-tab-to-move { opacity: 0.4; }
 
     .item {
         display: flex;
@@ -1458,55 +1325,35 @@ html {
         gap: var(--gap-indent);
         position: relative;
 
-        &.space-left {
-            padding-inline-start: calc(var(--bulma-block-spacing) * 2);
-        }
+        &.space-left { padding-inline-start: calc(var(--bulma-block-spacing) * 2); }
 
         &[style*="--sub-group-color"] {
             &::before {
                 content: '';
                 position: absolute;
                 background-color: var(--sub-group-color);
-                inset-block: 0;
-                left: 0;
-                width: 3px;
+                inset-block: 0; left: 0; width: 3px;
             }
-
             &.is-opened::before,
-            &.is-multiple-tab-to-move::before {
-                left: 3px;
-            }
+            &.is-multiple-tab-to-move::before { left: 3px; }
         }
-
 
         &.is-opened::after,
         &.is-multiple-tab-to-move::after {
             content: '';
             position: absolute;
             background-color: var(--group-icon-color, var(--bulma-info-50));
-            inset-block: 0;
-            left: 0;
-            width: 3px;
+            inset-block: 0; left: 0; width: 3px;
         }
 
         &:not(.no-hover):hover,
         &:focus-visible,
-        &.is-context-active {
-            background-color: var(--item-background-color-hover);
-        }
+        &.is-context-active { background-color: var(--item-background-color-hover); }
 
-        .item-action.bold-hover:hover {
-            background-color: var(--item-background-color-active-hover);
-        }
+        .item-action.bold-hover:hover { background-color: var(--item-background-color-active-hover); }
 
         &:not(.no-hover):active,
-        &.is-active-element {
-            background-color: var(--item-background-color-active-hover);
-        }
-
-        /* .item-icon {
-
-        } */
+        &.is-active-element { background-color: var(--item-background-color-active-hover); }
 
         .item-title {
             flex-grow: 1;
@@ -1517,7 +1364,6 @@ html {
             align-items: center;
             flex-wrap: nowrap;
             gap: var(--gap-indent);
-
             .tab-title {
                 display: flex;
                 align-items: center;
@@ -1539,7 +1385,7 @@ html {
             display: flex;
             visibility: hidden;
             width: 0;
-            overflow: hidden; /* for icon */
+            overflow: hidden;
         }
 
         &:hover .flex-on-hover {
@@ -1557,52 +1403,16 @@ html {
         overflow-y: auto;
     }
 
-    .search-scrollable {
-        --minus-height-delta: 60px; /* minus search bar */
-    }
-    .archive-tabs-scrollable {
-        --minus-height-delta: 150px; /* minus create new tab */
-    }
-    .tabs-scrollable {
-        --minus-height-delta: 210px; /* minus all */
-    }
+    .search-scrollable { --minus-height-delta: 60px; }
+    .archive-tabs-scrollable { --minus-height-delta: 150px; }
+    .tabs-scrollable { --minus-height-delta: 210px; }
 }
 
-/* END HELPERS */
-.group-title {
-    max-width: 100%;
-}
-
-.group,
-.tab {
-    position: relative;
-}
-
-.tab:not(.drag-over),
-.group:not(.drag-over) {
-    outline: none;
-}
-
-.group .tabs-text {
-    flex-grow: 1;
-}
-
-.group.item .item-action {
-    width: 75px;
-    min-width: 75px;
-    overflow: hidden;
-    text-align: center;
-}
-
-.not-sync-tabs > p {
-    padding: 0 var(--bulma-block-spacing);
-}
-
-#debug-message {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    translate: -50%;
-}
-
+.group-title { max-width: 100%; }
+.group, .tab { position: relative; }
+.tab:not(.drag-over), .group:not(.drag-over) { outline: none; }
+.group .tabs-text { flex-grow: 1; }
+.group.item .item-action { width: 75px; min-width: 75px; overflow: hidden; text-align: center; }
+.not-sync-tabs > p { padding: 0 var(--bulma-block-spacing); }
+#debug-message { position: absolute; top: 0; left: 50%; translate: -50%; }
 </style>
