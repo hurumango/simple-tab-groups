@@ -1,4 +1,3 @@
-
 import * as Constants from './constants.js';
 import * as Utils from './utils.js';
 import Queue from './queue.js';
@@ -30,9 +29,6 @@ const SESSIONS_API = new Map([
 
 const sessionQueue = new Queue('Cache', {trace: false});
 
-// the thumbnails option: tabs.js sets it from storage, restoreBackup from the backup being
-// restored. While off, thumbnails are neither read, written, removed nor handed out - the ones
-// already in the records wait for the option to come back; removeTabSession clears them regardless
 let useThumbnails = false;
 
 export function setUseThumbnails(value) {
@@ -43,7 +39,6 @@ function createRecord(id) {
     return {id};
 }
 
-// the browser's url in the addon's form: Tabs.fillEmptyUrl rewrites tab.url, browserUrl stays the browser's own
 function reportedUrl({url, browserUrl}) {
     return Utils.isUrlEmpty(browserUrl) ? browserUrl : url;
 }
@@ -59,10 +54,8 @@ function setLastTabState(tab) {
     });
 }
 
-// don't forget for pinned tabs events
 export function getRealTabStateChanged(tab) {
     let changeInfo = null;
-
     const lastState = lastTabsState.get(tab.id);
 
     if (lastState) {
@@ -91,18 +84,11 @@ export function clear() {
 
 // TABS
 
-// changeInfo - what the event announced (tabs.js onUpdated), none for a snapshot
 export function setTab(tab, changeInfo = null) {
     setLastTabState(tab);
     mirrorTab(tab, changeInfo);
 }
 
-// the mirror: the last state the browser reported, by events (setTab) and by reads alike;
-// requestedUrl - the address the tab was asked to load (Tabs.create, onBeforeTabRequest) until the
-// load has an outcome (removeTabRequestedUrl). The diff base is set here only for a tab it does
-// not know yet: the base moves with the events (tabs.js onUpdated, setTab); a read or a side
-// snapshot inside the 50-70 ms event wait must not overwrite it, or the pending event diffs
-// against its own result and is swallowed
 export function mirrorTab(tab, changeInfo = null) {
     const {id, title, favIconUrl, cookieStoreId, openerTabId} = tab;
     const url = reportedUrl(tab);
@@ -129,15 +115,12 @@ export function mirrorTab(tab, changeInfo = null) {
     removeTabRequestedUrl(record, tab, changeInfo);
 }
 
-// an empty address is nothing to wait for
 export function setTabRequestedUrl(id, url) {
     if (!Utils.isUrlEmpty(url)) {
         tabs.getOrInsertComputed(id, createRecord).requestedUrl = url;
     }
 }
 
-// the load has its outcome: the tab settled on a url (a url read from a loading tab is not final,
-// docs/BEHAVIOR-CREATE-TABS.md §28), or the event announced the end of a load that left the tab empty
 function removeTabRequestedUrl(record, tab, changeInfo) {
     const settled = Utils.isUrlEmpty(reportedUrl(tab))
         ? isEveryTabComplete(tab, changeInfo)
@@ -148,10 +131,8 @@ function removeTabRequestedUrl(record, tab, changeInfo) {
     }
 }
 
-// the requested url, else the last reported one
 export function getTabUrl(id) {
     const record = tabs.get(id);
-
     return record?.requestedUrl ?? record?.url;
 }
 
@@ -164,7 +145,6 @@ export function removeTab(id) {
     lastTabsState.delete(id);
 }
 
-// a cross-window move erases every link to and from the tab, with no event (docs/BEHAVIOR-OPENER.md §7, §9)
 export function clearTabOpeners(id) {
     delete tabs.get(id)?.openerTabId;
 
@@ -175,20 +155,11 @@ export function clearTabOpeners(id) {
     }
 }
 
-// who points at these tabs, by the mirror: the recreate re-points them at the copies
 export function getTabChildren(tabIds) {
     const ids = new Set(tabIds);
-
     return tabs.values().filter(tab => ids.has(tab.openerTabId)).toArray();
 }
 
-// session values, the same for tabs and windows: a record field has three states - no key means
-// not read yet, null means read and the session has no value, anything else is the value. Only
-// the load and the remove check the mark (a known "no value" is not read and not removed again);
-// the getters and the copies never let null out of the module. Operations on one id and one
-// key run one after another (queueByKey), different keys in parallel. A record deleted from the
-// store (forgetTab, removeTab, removeWindow) while an operation waits its turn is dead: the load
-// skips it, a write lands in it and nobody reads it again
 async function loadValue(store, id, key) {
     const record = store.getOrInsertComputed(id, createRecord);
 
@@ -209,6 +180,10 @@ async function setValue(store, id, key, value) {
     const record = store.getOrInsertComputed(id, createRecord);
 
     await queueByKey('set', store, id, key, async () => {
+        // Prevent redundant session writes if the value is already identical
+        if (record[key] === value) {
+            return;
+        }
         await SESSIONS_API.get(store).set(id, key, value);
         record[key] = value;
     });
@@ -248,9 +223,6 @@ export async function removeTabGroup(id) {
     await removeValue(tabs, id, GROUP_KEY);
 }
 
-// subGroupId - the sub-group of the tab: the stable string id of STG's record of the browser's tab
-// group (createSubGroupId, sub-groups.js), never the live id of the browser. The single source of
-// truth: survives addon and browser restarts and travels with the tab.
 export async function loadTabSubGroupId(id) {
     return await loadValue(tabs, id, SUB_GROUP_KEY);
 }
@@ -328,7 +300,6 @@ export async function loadTabSession(tab, {
 
 export async function setTabSession(tab, session = null) {
     setTab(tab);
-
     applySession(tab, session);
 
     await Promise.all([
@@ -341,8 +312,6 @@ export async function setTabSession(tab, session = null) {
     return tab;
 }
 
-// forget the tab, the reads still in flight included: they land in the dropped record, the load
-// that follows mirrors the tab again at once. lastTabsState stays, it is the onUpdated diff base
 export function forgetTab(id) {
     tabs.delete(id);
 }
@@ -382,14 +351,12 @@ export function getTabsSessionAndRemove(ids) {
                 session = Object.fromEntries(Object.entries(known).filter(([, value]) => value !== null));
                 session.url = url;
 
-                // a tab still waiting for its page shows the title of no page
                 if (requestedUrl) {
                     delete session.title;
                 }
             }
 
             removeTab(id);
-
             return session;
         })
         .filter(Boolean);
@@ -429,8 +396,7 @@ export async function removeWindowGroup(id) {
 export async function loadWindowSession(win) {
     try {
         win.groupId = await loadValue(windows, win.id, GROUP_KEY);
-
-        return win; // TODO check in stg-debug.js and others
+        return win;
     } catch {
         removeWindow(win?.id);
     }
