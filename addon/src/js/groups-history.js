@@ -10,7 +10,11 @@ export default class GroupsHistory {
                 const history = await this.#load(windowId);
 
                 if (!history.groupIds.includes(groupId)) {
-                    await this.add(windowId, groupId);
+                    history.groupIds = history.groupIds
+                        .slice(0, history.index + 1)
+                        .filter(savedGroupId => savedGroupId !== groupId);
+                    history.index = history.groupIds.push(groupId) - 1;
+                    await this.#save(windowId, history);
                 }
             })
         );
@@ -18,6 +22,10 @@ export default class GroupsHistory {
 
     async add(windowId, groupId) {
         const history = await this.#load(windowId);
+
+        if (history.groupIds[history.index] === groupId) {
+            return;
+        }
 
         history.groupIds = history.groupIds
             .slice(0, history.index + 1)
